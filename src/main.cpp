@@ -146,9 +146,34 @@ int extract_data(const std::string& mkv_filepath, const int& rot_angle, const ui
     printf("Recording is %lu seconds long\n", recording_length / 1000000);
 
     // Jump to from_TS frame!!
-    if (from_TS > 0)
+    k4a_record_configuration_t rec_conf;
+    k4a_playback_get_record_configuration(playback_handle, &rec_conf);
+    
+    uint64_t seek_TS_from, seek_TS_to;
+    
+    if (rec_conf.start_timestamp_offset_usec > 0)
     {
-        k4a_playback_seek_timestamp(playback_handle, from_TS, K4A_PLAYBACK_SEEK_BEGIN);
+        if (from_TS < rec_conf.start_timestamp_offset_usec)
+        {
+            seek_TS_from = 0;
+        }
+        else
+        {
+            seek_TS_from = from_TS - rec_conf.start_timestamp_offset_usec;
+        }
+        
+        seek_TS_to = to_TS - rec_conf.start_timestamp_offset_usec;
+    }
+    else
+    {
+        seek_TS_from = from_TS;
+        seek_TS_to = to_TS;
+    }
+    
+    
+    if (seek_TS_from > 0)
+    {
+        k4a_playback_seek_timestamp(playback_handle, seek_TS_from, K4A_PLAYBACK_SEEK_BEGIN);
     }
     
     k4a_image_t last_rgb_im = NULL;
