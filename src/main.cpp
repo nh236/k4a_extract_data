@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <experimental/filesystem>
 
@@ -17,12 +18,20 @@
 ////////////////////////
 // extract_data
 ///////////////////////
-int extract_data(const std::string& mkv_filepath, const int& rot_angle, const uint64_t& from_TS, const uint64_t& to_TS, const std::string& task_name, const bool& extract_ir)
+int extract_data(const std::string& mkv_filepath, const int& rot_angle, const uint64_t& from_TS, const uint64_t& to_TS, const std::string& task_name, const bool& extract_ir, char * outfolder)
 {
     std::string foldername, filename;
-    split_filename(mkv_filepath, foldername, filename);
-    foldername += task_name;
-    
+
+    if (outfolder)
+    {
+        foldername = outfolder;
+    }
+    else
+    {
+        split_filename(mkv_filepath, foldername, filename);
+        foldername += task_name;
+    }
+
     if(!std::experimental::filesystem::exists(foldername))
     {
         create_folder(foldername);
@@ -149,25 +158,32 @@ int extract_data(const std::string& mkv_filepath, const int& rot_angle, const ui
     k4a_record_configuration_t rec_conf;
     k4a_playback_get_record_configuration(playback_handle, &rec_conf);
     
-    uint64_t seek_TS_from, seek_TS_to;
+    uint64_t seek_TS_from = 0;
+    // uint_64_t seek_TS_to; // not used
     
     if (rec_conf.start_timestamp_offset_usec > 0)
     {
+        std::ofstream tsfile;
+        tsfile.open (foldername + "/start_timestamp_offset_usec.txt");
+        tsfile << rec_conf.start_timestamp_offset_usec << "\n";
+        tsfile.close();
+
         if (from_TS < rec_conf.start_timestamp_offset_usec)
         {
-            seek_TS_from = 0;
+            seek_TS_from = from_TS;
         }
         else
         {
+
             seek_TS_from = from_TS - rec_conf.start_timestamp_offset_usec;
         }
         
-        seek_TS_to = to_TS - rec_conf.start_timestamp_offset_usec;
+        // seek_TS_to = to_TS - rec_conf.start_timestamp_offset_usec;
     }
     else
     {
         seek_TS_from = from_TS;
-        seek_TS_to = to_TS;
+        // seek_TS_to = to_TS;
     }
     
     
@@ -208,7 +224,7 @@ int extract_data(const std::string& mkv_filepath, const int& rot_angle, const ui
                 printf("Depth timestamp: %lu.\n", dep_ts);
             
                 
-                if (to_TS < 0 || (dep_ts >= from_TS && dep_ts <= to_TS))
+                if (to_TS == std::numeric_limits<uint64_t>::max() || (dep_ts >= from_TS + rec_conf.start_timestamp_offset_usec && dep_ts <= to_TS + rec_conf.start_timestamp_offset_usec))
                 {
                     if (rgb_im != NULL)
                     {
@@ -228,7 +244,7 @@ int extract_data(const std::string& mkv_filepath, const int& rot_angle, const ui
                         printf("******* Async depth/rgb!!! *****************");
                     }
                 }
-                else if (dep_ts > to_TS)
+                else if (dep_ts > to_TS + rec_conf.start_timestamp_offset_usec)
                 {
                     done = true;
                 }
@@ -301,21 +317,22 @@ int main(int argc, char** argv)
 
     int rot_angle = 0;
     uint64_t from_TS = 0;
-    uint64_t to_TS = -1;
+    uint64_t to_TS = std::numeric_limits<uint64_t>::max();
     std::string task_name = "";
     bool extract_ir = false;
     
-    if (argc == 6)
+    if (argc > 2)
+    {
+        rot_angle = atoi(argv[2]);
+        std::cout << "Rotation angle: " << rot_angle << std::endl;
+    }
+
+    if (argc >= 6)
     {
         from_TS = atol(argv[3]);
         to_TS = atol(argv[4]);
         task_name = "_" + std::string(argv[5]);
-        std::cout << "from_TS: " << from_TS << "to_TS: " << to_TS << "task_name: " << task_name << std::endl;
-    }
-    else if (argc > 2)
-    {
-        rot_angle = atoi(argv[2]);
-        std::cout << "Rotation angle: " << rot_angle << std::endl;
+        std::cout << "from_TS: " << from_TS << ", to_TS: " << to_TS << ", task_name: " << task_name << std::endl;
     }
 
     for (int i = 0; i < argc; ++i)
@@ -324,7 +341,9 @@ int main(int argc, char** argv)
             extract_ir = true;
     }
     
-    extract_data(mkv_filepath, rot_angle, from_TS, to_TS, task_name, extract_ir);
+    char * outfolder = getCmdOption(argv, argv + argc, "-outfolder");
+
+    extract_data(mkv_filepath, rot_angle, from_TS, to_TS, task_name, extract_ir, outfolder);
 
     return 0;
 }
