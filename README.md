@@ -22,13 +22,15 @@ This code has been tested on Ubuntu 20.04, Azure Kinect SDK 1.4.1 and OpenCV 4.7
 ### Running
 
 ```
-./bin/k4a_extract_data <mkv_filename> [<rotation angle (90, 180, 270), default: 0>] [<from_TS> <to_TS> <task_name>]
+./bin/k4a_extract_data <mkv_filename> [<rotation angle (90, 180, 270), default: 0>] [<from_TS> <to_TS> <task_name>] [-outfolder <save_folder>]
 ```
 `rotation angle`: optional, to rotate extracted images (e.g., if the camera was rotated during recording)
 
 `fromTS`, `toTS`: optional, to extract only a portion of the recording, starting at timestamp fromTS until toTS (in microseconds)
 
 `task_name`: string that will be appended to the output folder
+
+`save_folder`: optional, path where the data should be saved (if you don't want to use the default location)
 
 Example:
 `./bin/k4a_extract_data ~/test/test123.mkv 90 0 1000000 part1` will store images rotated by 90 degrees for the first second (1000000 microsec) of recording `test123.mkv` in folder  `~/test_part1`
