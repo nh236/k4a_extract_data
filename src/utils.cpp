@@ -15,6 +15,17 @@
 #define INVALID INT32_MIN
 
 
+char* getCmdOption(char ** begin, char ** end, const std::string & option)
+{
+    char ** itr = std::find(begin, end, option);
+    if (itr != end && ++itr != end)
+    {
+        return *itr;
+    }
+    return 0;
+}
+
+
 void split_filename (const std::string& str, std::string& folder, std::string& file)
 {
     size_t found;
