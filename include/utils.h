@@ -48,6 +48,8 @@ pinhole_t create_pinhole_from_calib(const k4a_calibration_t *calibration, const 
 
 void write_calib(const std::string& filename, k4a_calibration_t calibration);
 
+char* getCmdOption(char ** begin, char ** end, const std::string & option);
+
 void split_filename (const std::string& str, std::string& folder, std::string& file);
 
 bool color_to_depth(k4a_transformation_t transformation_handle,
