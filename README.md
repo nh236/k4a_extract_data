@@ -22,7 +22,7 @@ This code has been tested on Ubuntu 20.04, Azure Kinect SDK 1.4.1 and OpenCV 4.7
 ### Running
 
 ```
-./bin/k4a_extract_data <mkv_filename> [<rotation angle (90, 180, 270), default: 0>] [<from_TS> <to_TS> <task_name>] [-outfolder <save_folder>]
+./bin/k4a_extract_data <mkv_filename> [<rotation angle (90, 180, 270), default: 0>] [<from_TS> <to_TS> <task_name>] [--outfolder <save_folder>] [--global_TS]
 ```
 `rotation angle`: optional, to rotate extracted images (e.g., if the camera was rotated during recording)
 
@@ -31,6 +31,8 @@ This code has been tested on Ubuntu 20.04, Azure Kinect SDK 1.4.1 and OpenCV 4.7
 `task_name`: string that will be appended to the output folder
 
 `save_folder`: optional, path where the data should be saved (if you don't want to use the default location)
+
+`--global_TS`: if set, this will expect from_TS and to_TS to be global device timestamps. Default (=not set) expects timestamps relative to start of recording. (Azure Kinect timestamps start counting when device is started. When recording starts later, e.g. 10 seconds, the global timestamp of the first frame will be 10000000 (microseconds). If we want to extract seconds 2 to 3 of this recording, we can call k4a_extract_data either with a value of `2000000` for from_TS, and a value of `3000000` for to_TS (without `--global_TS`) OR we call k4a_extract_data with a value of `12000000` for from_TS, and a value of `13000000` for to_TS and with `--global_TS`.
 
 Example:
 `./bin/k4a_extract_data ~/test/test123.mkv 90 0 1000000 part1` will store images rotated by 90 degrees for the first second (1000000 microsec) of recording `test123.mkv` in folder  `~/test_part1`
