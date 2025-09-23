@@ -26,6 +26,12 @@ char* getCmdOption(char ** begin, char ** end, const std::string & option)
 }
 
 
+bool cmdOptionExists(char** begin, char** end, const std::string& option)
+{
+    return std::find(begin, end, option) != end;
+}
+
+
 void split_filename (const std::string& str, std::string& folder, std::string& file)
 {
     size_t found;
