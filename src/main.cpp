@@ -18,7 +18,7 @@
 ////////////////////////
 // extract_data
 ///////////////////////
-int extract_data(const std::string& mkv_filepath, const int& rot_angle, const uint64_t& from_TS, const uint64_t& to_TS, const std::string& task_name, const bool& extract_ir, char * outfolder)
+int extract_data(const std::string& mkv_filepath, const int& rot_angle, const uint64_t& from_TS, const uint64_t& to_TS, const std::string& task_name, const bool& extract_ir, char * outfolder, const bool& use_global_TS)
 {
     std::string foldername, filename;
 
@@ -44,7 +44,6 @@ int extract_data(const std::string& mkv_filepath, const int& rot_angle, const ui
     k4a_capture_t capture = NULL;
     k4a_stream_result_t result = K4A_STREAM_RESULT_SUCCEEDED;
     interpolation_t interpolation_type = INTERPOLATION_NEARESTNEIGHBOR;
-
 
     int img_rot_flag = -1; // No rotation
     
@@ -158,38 +157,35 @@ int extract_data(const std::string& mkv_filepath, const int& rot_angle, const ui
     k4a_record_configuration_t rec_conf;
     k4a_playback_get_record_configuration(playback_handle, &rec_conf);
     
+    // Different options:
+    // 1. from_TS and to_TS given relative to start of recording (use_global_TS == False)
+    // 2. from_TS and to_TS given as absolute device timestamps (use_global_TS == True)
+    k4a_playback_seek_origin_t seek_TS_type = K4A_PLAYBACK_SEEK_BEGIN;
+    uint64_t start_timestamp_offset_usec = rec_conf.start_timestamp_offset_usec; // used for checking if current TS is between from_TS and to_TS
+
+    if (use_global_TS)
+    {
+        seek_TS_type = K4A_PLAYBACK_SEEK_DEVICE_TIME;
+        start_timestamp_offset_usec = 0;
+    }
+
     uint64_t seek_TS_from = 0;
     // uint_64_t seek_TS_to; // not used
-    
+
     if (rec_conf.start_timestamp_offset_usec > 0)
     {
+        // store information on start timestamp offset (for other uses)
         std::ofstream tsfile;
         tsfile.open (foldername + "/start_timestamp_offset_usec.txt");
         tsfile << rec_conf.start_timestamp_offset_usec << "\n";
         tsfile.close();
-
-        if (from_TS < rec_conf.start_timestamp_offset_usec)
-        {
-            seek_TS_from = from_TS;
-        }
-        else
-        {
-
-            seek_TS_from = from_TS - rec_conf.start_timestamp_offset_usec;
-        }
-        
-        // seek_TS_to = to_TS - rec_conf.start_timestamp_offset_usec;
     }
-    else
-    {
-        seek_TS_from = from_TS;
-        // seek_TS_to = to_TS;
-    }
-    
+
+    seek_TS_from = from_TS;
     
     if (seek_TS_from > 0)
     {
-        k4a_playback_seek_timestamp(playback_handle, seek_TS_from, K4A_PLAYBACK_SEEK_BEGIN);
+        k4a_playback_seek_timestamp(playback_handle, seek_TS_from, seek_TS_type);
     }
     
     k4a_image_t last_rgb_im = NULL;
@@ -224,7 +220,7 @@ int extract_data(const std::string& mkv_filepath, const int& rot_angle, const ui
                 printf("Depth timestamp: %lu.\n", dep_ts);
             
                 
-                if (to_TS == std::numeric_limits<uint64_t>::max() || (dep_ts >= from_TS + rec_conf.start_timestamp_offset_usec && dep_ts <= to_TS + rec_conf.start_timestamp_offset_usec))
+                if (to_TS == std::numeric_limits<uint64_t>::max() || (dep_ts >= (from_TS + start_timestamp_offset_usec) && dep_ts <= (to_TS + start_timestamp_offset_usec) ))
                 {
                     if (rgb_im != NULL)
                     {
@@ -244,7 +240,7 @@ int extract_data(const std::string& mkv_filepath, const int& rot_angle, const ui
                         printf("******* Async depth/rgb!!! *****************");
                     }
                 }
-                else if (dep_ts > to_TS + rec_conf.start_timestamp_offset_usec)
+                else if (dep_ts > to_TS + start_timestamp_offset_usec)
                 {
                     done = true;
                 }
@@ -307,7 +303,7 @@ int main(int argc, char** argv)
 {
     if (argc < 2)
     {
-        printf("Usage: k4a_extract_data <mkv_filename> [<rotation angle (90, 180, 270), default: 0>] [<from_TS> <to_TS> <task_name>]\n");
+        printf("Usage: k4a_extract_data <mkv_filename> [<rotation angle (90, 180, 270), default: 0>] [<from_TS> <to_TS> <task_name>] [--outfolder <output_folder>] [--global_TS] [--ir]\n");
         return 2;
     }
 
@@ -319,8 +315,10 @@ int main(int argc, char** argv)
     uint64_t from_TS = 0;
     uint64_t to_TS = std::numeric_limits<uint64_t>::max();
     std::string task_name = "";
-    bool extract_ir = false;
-    
+    bool extract_ir = getCmdOption(argv, argv + argc, "--ir");;
+    char * outfolder = getCmdOption(argv, argv + argc, "--outfolder");
+    bool use_global_TS = cmdOptionExists(argv, argv+argc, "--global_TS"); // whether to consider timestamps (from_TS, to_TS) as global timestamps or relative to beginning of recording
+
     if (argc > 2)
     {
         rot_angle = atoi(argv[2]);
@@ -332,18 +330,11 @@ int main(int argc, char** argv)
         from_TS = atol(argv[3]);
         to_TS = atol(argv[4]);
         task_name = "_" + std::string(argv[5]);
-        std::cout << "from_TS: " << from_TS << ", to_TS: " << to_TS << ", task_name: " << task_name << std::endl;
-    }
-
-    for (int i = 0; i < argc; ++i)
-    {
-        if (std::string(argv[i]) == "--ir")
-            extract_ir = true;
+        std::cout << "from_TS: " << from_TS << ", to_TS: " << to_TS << ", task_name: " << task_name << ", global_TS: " << use_global_TS << std::endl;
     }
     
-    char * outfolder = getCmdOption(argv, argv + argc, "-outfolder");
 
-    extract_data(mkv_filepath, rot_angle, from_TS, to_TS, task_name, extract_ir, outfolder);
+    extract_data(mkv_filepath, rot_angle, from_TS, to_TS, task_name, extract_ir, outfolder, use_global_TS);
 
     return 0;
 }
