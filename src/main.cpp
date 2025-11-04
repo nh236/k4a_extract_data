@@ -327,8 +327,8 @@ int main(int argc, char** argv)
 
     if (argc >= 6)
     {
-        from_TS = atol(argv[3]);
-        to_TS = atol(argv[4]);
+        from_TS = atoll(argv[3]);
+        to_TS = atoll(argv[4]);
         task_name = "_" + std::string(argv[5]);
         std::cout << "from_TS: " << from_TS << ", to_TS: " << to_TS << ", task_name: " << task_name << ", global_TS: " << use_global_TS << std::endl;
     }
